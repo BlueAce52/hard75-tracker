@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hard 75 – 2-Person Tracker</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body { margin: 0; background:#0b0f14; color:#e9eef6; }
+    header { padding: 14px 16px; background:#101826; position: sticky; top: 0; border-bottom: 1px solid #1f2a3a; }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+    .wrap { max-width: 780px; margin: 0 auto; padding: 16px; }
+    .row { display:flex; gap:10px; flex-wrap: wrap; }
+    .card { background:#101826; border:1px solid #1f2a3a; border-radius:14px; padding:14px; }
+    .card h2 { margin:0 0 10px 0; font-size:14px; font-weight:600; color:#cfe1ff; }
+    .pill { padding:8px 10px; border-radius: 999px; border: 1px solid #2a3a52; background:#0c1421; color:#d7e5ff; }
+    button, input, select { font: inherit; }
+    button { background:#1b2a44; color:#e9eef6; border:1px solid #2a3a52; border-radius: 12px; padding:10px 12px; cursor:pointer; }
+    button:hover { filter: brightness(1.08); }
+    button.danger { background:#3a1b1b; border-color:#5a2a2a; }
+    button.primary { background:#18408a; border-color:#2a5bd4; }
+    input[type="text"], input[type="date"] {
+      background:#0c1421; border:1px solid #2a3a52; color:#e9eef6;
+      border-radius:12px; padding:10px 12px; min-width: 220px;
+    }
+    .tabs { display:flex; gap:10px; margin-top: 10px; flex-wrap: wrap; }
+    .tab { padding:10px 12px; border-radius: 12px; border:1px solid #2a3a52; background:#0c1421; cursor:pointer; }
+    .tab.active { background:#18408a; border-color:#2a5bd4; }
+    ul { list-style:none; padding:0; margin:0; }
+    li { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1f2a3a; }
+    li:last-child { border-bottom:none; }
+    .checkbox { width: 20px; height: 20px; }
+    .muted { color:#9bb0cf; font-size: 12px; }
+    .grid { display:grid; grid-template-columns: repeat(10, 1fr); gap:6px; }
+    .day { text-align:center; padding:10px 0; border-radius: 10px; border:1px solid #1f2a3a; background:#0c1421; font-size: 12px; cursor:pointer; }
+    .day.good { background:#11351f; border-color:#1f5a34; }
+    .day.bad { background:#3a1b1b; border-color:#5a2a2a; }
+    .day.today { outline: 2px solid #2a5bd4; }
+    .small { padding:8px 10px; border-radius: 12px; }
+    .spacer { height: 8px; }
+    .right { margin-left:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hard 75 – 2-Person Tracker</h1>
+  </header>
+
+  <div class="wrap">
+    <div class="row">
+      <div class="card" style="flex:1; min-width:280px;">
+        <h2>People</h2>
+        <div class="tabs" id="peopleTabs"></div>
+        <div class="spacer"></div>
+        <div class="row">
+          <input id="personName" type="text" placeholder="Person name" />
+          <button class="small" id="savePersonName">Save name</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="muted">Tip: Each person has their own checklist + 75-day history.</div>
+      </div>
+
+      <div class="card" style="flex:1; min-width:280px;">
+        <h2>Challenge</h2>
+        <div class="row">
+          <label class="pill">Start: <input id="startDate" type="date" /></label>
+          <button class="small" id="setStart">Set</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <div class="pill" id="dayInfo">Day —</div>
+          <div class="pill" id="statusInfo">Status —</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="danger small" id="restart">Restart 75 days</button>
+          <button class="small" id="exportBtn">Export JSON</button>
+          <button class="small" id="importBtn">Import JSON</button>
+          <input id="importFile" type="file" accept="application/json" style="display:none" />
+        </div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="row">
+      <div class="card" style="flex:1; min-width:280px;">
+        <h2>Today / Selected Day</h2>
+        <div class="row">
+          <input id="selectedDate" type="date" />
+          <button class="small" id="jumpToday">Today</button>
+        </div>
+        <div class="spacer"></div>
+        <ul id="checklist"></ul>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="small" id="markAll">Mark all done</button>
+          <button class="small" id="clearAll">Clear all</button>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1; min-width:280px;">
+        <h2>Customize Daily Items</h2>
+        <div class="row">
+          <input id="newItem" type="text" placeholder="Add a new daily item…" />
+          <button class="primary small" id="addItem">Add</button>
+        </div>
+        <div class="spacer"></div>
+        <ul id="itemsList"></ul>
+        <div class="muted">You can rename or delete items anytime (history remains for past days).</div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="card">
+      <h2>75-Day View</h2>
+      <div class="muted">Tap a day to edit that date’s checklist. Green = all items done; red = missed/partial; blank = future/not started.</div>
+      <div class="spacer"></div>
+      <div class="grid" id="daysGrid"></div>
+    </div>
+  </div>
+
+<script>
+  const KEY = "hard75_2person_v1";
+
+  const todayISO = () => new Date().toISOString().slice(0,10);
+  const addDays = (iso, n) => {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0,10);
+  };
+  const daysBetween = (aISO, bISO) => {
+    const a = new Date(aISO + "T00:00:00");
+    const b = new Date(bISO + "T00:00:00");
+    return Math.round((b - a) / (1000*60*60*24));
+  };
+
+  const defaultItems = [
+    "Workout 1",
+    "Workout 2",
+    "Drink 1 gallon water",
+    "Follow diet",
+    "Read 10 pages",
+    "Progress photo"
+  ];
+
+  function loadState() {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return JSON.parse(raw);
+    const start = todayISO();
+    return {
+      version: 1,
+      selectedPersonId: "p1",
+      selectedDate: todayISO(),
+      people: {
+        p1: { id:"p1", name:"Person 1", startDate:start, items:[...defaultItems], log:{} },
+        p2: { id:"p2", name:"Person 2", startDate:start, items:[...defaultItems], log:{} }
+      }
+    };
+  }
+  function saveState() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+  function getPerson() { return state.people[state.selectedPersonId]; }
+
+  function ensureDayLog(person, date) {
+    if (!person.log[date]) {
+      person.log[date] = { done:{}, note:"" };
+      person.items.forEach(it => person.log[date].done[it] = false);
+    } else {
+      // Backfill new items if list changed
+      person.items.forEach(it => {
+        if (typeof person.log[date].done[it] !== "boolean") person.log[date].done[it] = false;
+      });
+    }
+  }
+
+  function completionStatus(person, date) {
+    const start = person.startDate;
+    const idx = daysBetween(start, date);
+    if (idx < 0 || idx > 74) return { inRange:false, dayNum:null, status:"Out of range" };
+    ensureDayLog(person, date);
+    const vals = Object.values(person.log[date].done);
+    const all = vals.length && vals.every(Boolean);
+    const any = vals.some(Boolean);
+    return {
+      inRange:true,
+      dayNum: idx + 1,
+      status: all ? "Complete" : (any ? "Partial" : "Missed")
+    };
+  }
+
+  function renderPeopleTabs() {
+    const el = document.getElementById("peopleTabs");
+    el.innerHTML = "";
+    Object.values(state.people).forEach(p => {
+      const b = document.createElement("button");
+      b.className = "tab" + (p.id === state.selectedPersonId ? " active" : "");
+      b.textContent = p.name;
+      b.onclick = () => { state.selectedPersonId = p.id; saveState(); syncUI(); };
+      el.appendChild(b);
+    });
+    document.getElementById("personName").value = getPerson().name;
+  }
+
+  function renderChecklist() {
+    const person = getPerson();
+    const date = state.selectedDate;
+    ensureDayLog(person, date);
+
+    const ul = document.getElementById("checklist");
+    ul.innerHTML = "";
+    person.items.forEach(item => {
+      const li = document.createElement("li");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "checkbox";
+      cb.checked = !!person.log[date].done[item];
+      cb.onchange = () => {
+        person.log[date].done[item] = cb.checked;
+        saveState();
+        syncHeader();
+        renderDaysGrid();
+      };
+      const span = document.createElement("div");
+      span.textContent = item;
+
+      li.appendChild(cb);
+      li.appendChild(span);
+      ul.appendChild(li);
+    });
+  }
+
+  function renderItemsEditor() {
+    const person = getPerson();
+    const ul = document.getElementById("itemsList");
+    ul.innerHTML = "";
+    person.items.forEach((item, idx) => {
+      const li = document.createElement("li");
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = item;
+
+      const saveBtn = document.createElement("button");
+      saveBtn.textContent = "Rename";
+      saveBtn.className = "small";
+      saveBtn.onclick = () => {
+        const newName = input.value.trim();
+        if (!newName) return;
+        const oldName = person.items[idx];
+        person.items[idx] = newName;
+
+        // Update logs to preserve history
+        Object.keys(person.log).forEach(d => {
+          if (person.log[d].done.hasOwnProperty(oldName)) {
+            person.log[d].done[newName] = person.log[d].done[oldName];
+            delete person.log[d].done[oldName];
+          } else if (typeof person.log[d].done[newName] !== "boolean") {
+            person.log[d].done[newName] = false;
+          }
+        });
+
+        saveState();
+        syncUI();
+      };
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete";
+      delBtn.className = "small danger";
+      delBtn.onclick = () => {
+        const name = person.items[idx];
+        person.items.splice(idx,1);
+        // Keep history as-is; just stop showing item going forward.
+        saveState();
+        syncUI();
+      };
+
+      const upBtn = document.createElement("button");
+      upBtn.textContent = "↑";
+      upBtn.className = "small";
+      upBtn.onclick = () => {
+        if (idx === 0) return;
+        [person.items[idx-1], person.items[idx]] = [person.items[idx], person.items[idx-1]];
+        saveState();
+        syncUI();
+      };
+
+      const dnBtn = document.createElement("button");
+      dnBtn.textContent = "↓";
+      dnBtn.className = "small";
+      dnBtn.onclick = () => {
+        if (idx === person.items.length-1) return;
+        [person.items[idx+1], person.items[idx]] = [person.items[idx], person.items[idx+1]];
+        saveState();
+        syncUI();
+      };
+
+      li.appendChild(input);
+      li.appendChild(saveBtn);
+      li.appendChild(upBtn);
+      li.appendChild(dnBtn);
+      li.appendChild(delBtn);
+      ul.appendChild(li);
+    });
+  }
+
+  function renderDaysGrid() {
+    const person = getPerson();
+    const grid = document.getElementById("daysGrid");
+    grid.innerHTML = "";
+    for (let i=0;i<75;i++) {
+      const date = addDays(person.startDate, i);
+      const st = completionStatus(person, date);
+      const div = document.createElement("div");
+      div.className = "day";
+      if (st.status === "Complete") div.classList.add("good");
+      else if (st.status === "Partial" || st.status === "Missed") div.classList.add("bad");
+      if (date === todayISO()) div.classList.add("today");
+
+      div.innerHTML = `D${i+1}<div class="muted">${date.slice(5)}</div>`;
+      div.onclick = () => {
+        state.selectedDate = date;
+        saveState();
+        syncUI();
+      };
+      grid.appendChild(div);
+    }
+  }
+
+  function syncHeader() {
+    const person = getPerson();
+    const st = completionStatus(person, state.selectedDate);
+    document.getElementById("dayInfo").textContent = st.inRange ? `Day ${st.dayNum} (${state.selectedDate})` : state.selectedDate;
+    document.getElementById("statusInfo").textContent = st.inRange ? `Status: ${st.status}` : "Status: —";
+  }
+
+  function syncUI() {
+    renderPeopleTabs();
+    document.getElementById("startDate").value = getPerson().startDate;
+    document.getElementById("selectedDate").value = state.selectedDate;
+    syncHeader();
+    renderChecklist();
+    renderItemsEditor();
+    renderDaysGrid();
+  }
+
+  let state = loadState();
+  // Ensure selected date is set
+  if (!state.selectedDate) state.selectedDate = todayISO();
+
+  // Wire up controls
+  document.getElementById("savePersonName").onclick = () => {
+    const person = getPerson();
+    const name = document.getElementById("personName").value.trim();
+    if (!name) return;
+    person.name = name;
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("setStart").onclick = () => {
+    const person = getPerson();
+    const d = document.getElementById("startDate").value;
+    if (!d) return;
+    person.startDate = d;
+    // Optional: keep logs but day mapping changes. That's okay.
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("selectedDate").onchange = (e) => {
+    state.selectedDate = e.target.value || todayISO();
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("jumpToday").onclick = () => {
+    state.selectedDate = todayISO();
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("addItem").onclick = () => {
+    const person = getPerson();
+    const input = document.getElementById("newItem");
+    const val = input.value.trim();
+    if (!val) return;
+    if (person.items.includes(val)) { input.value = ""; return; }
+    person.items.push(val);
+    input.value = "";
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("markAll").onclick = () => {
+    const person = getPerson();
+    ensureDayLog(person, state.selectedDate);
+    person.items.forEach(it => person.log[state.selectedDate].done[it] = true);
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("clearAll").onclick = () => {
+    const person = getPerson();
+    ensureDayLog(person, state.selectedDate);
+    person.items.forEach(it => person.log[state.selectedDate].done[it] = false);
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("restart").onclick = () => {
+    if (!confirm("Restart challenge for the selected person? This keeps custom items but clears the 75-day log.")) return;
+    const person = getPerson();
+    person.startDate = todayISO();
+    person.log = {};
+    state.selectedDate = todayISO();
+    saveState();
+    syncUI();
+  };
+
+  document.getElementById("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "hard75-tracker.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
+
+  document.getElementById("importFile").onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      if (!data.people || !data.selectedPersonId) throw new Error("Invalid file");
+      state = data;
+      saveState();
+      syncUI();
+      alert("Imported!");
+    } catch(err) {
+      alert("Import failed: " + err.message);
+    }
+  };
+
+  // First render
+  saveState();
+  syncUI();
+</script>
+</body>
+</html>
