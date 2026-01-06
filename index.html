@@ -78,6 +78,11 @@
           <button class="small" id="importBtn">Import JSON</button>
           <input id="importFile" type="file" accept="application/json" style="display:none" />
         </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="small" id="shareLinkBtn">Copy share link</button>
+          <div class="muted" id="shareStatus">Share a link to sync data across users.</div>
+        </div>
       </div>
     </div>
 
@@ -144,6 +149,23 @@
     "Read 10 pages",
     "Progress photo"
   ];
+
+  const encodeShare = (data) => {
+    const json = JSON.stringify(data);
+    const bytes = new TextEncoder().encode(json);
+    let binary = "";
+    bytes.forEach((b) => { binary += String.fromCharCode(b); });
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  };
+
+  const decodeShare = (payload) => {
+    const base64 = payload.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+    return JSON.parse(json);
+  };
 
   function loadState() {
     const raw = localStorage.getItem(KEY);
@@ -447,9 +469,41 @@
     }
   };
 
+  document.getElementById("shareLinkBtn").onclick = async () => {
+    const status = document.getElementById("shareStatus");
+    try {
+      const payload = encodeShare(state);
+      const url = `${location.origin}${location.pathname}?share=${payload}`;
+      await navigator.clipboard.writeText(url);
+      status.textContent = "Share link copied to clipboard.";
+    } catch (err) {
+      document.getElementById("shareStatus").textContent = "Share link ready — copy from the URL bar.";
+    }
+  };
+
+  const maybeImportShare = () => {
+    const params = new URLSearchParams(location.search);
+    const payload = params.get("share");
+    if (!payload) return;
+    try {
+      const data = decodeShare(payload);
+      if (!data.people || !data.selectedPersonId) throw new Error("Invalid share data");
+      if (confirm("Load shared data? This will replace your current tracker data.")) {
+        state = data;
+        saveState();
+        syncUI();
+      }
+      history.replaceState({}, document.title, location.pathname);
+    } catch (err) {
+      alert("Share link invalid: " + err.message);
+      history.replaceState({}, document.title, location.pathname);
+    }
+  };
+
   // First render
   saveState();
   syncUI();
+  maybeImportShare();
 </script>
 </body>
 </html>
